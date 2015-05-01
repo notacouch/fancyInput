@@ -81,14 +81,13 @@
 			if( !lettersWrap.find('span').length )
 				return false;
 			letterHeight = lettersWrap.find('span')[0].clientHeight;
-			lettersWrap.find('b').height(letterHeight);
+			lettersWrap.find('b').css('height', letterHeight);
 		},
 		
 		// writes a single character every time
 		writer : function(charString, input, appendIndex){
 			var chars = $(input.nextElementSibling).children().not('b'),  // select all characters including <br> (which is a new line)
 				newCharElm = document.createElement('span');
-				
 
 			if( input.maxLength > 0 && chars.length > input.maxLength )
 				return this;
