@@ -26,7 +26,7 @@
 
 		keypress : function(e){
 			var charString = String.fromCharCode(e.charCode),
-				textCont = this.nextElementSibling,
+				textCont = $(this).data('template').get(0),
 				appendIndex = this.selectionEnd,
 				newLine = this.tagName == 'TEXTAREA' && e.keyCode == 13;
 				
@@ -70,14 +70,14 @@
 		// if password field, delete all content
 		maskPassword : function(input){
 			if( input.type == 'password' )
-				$(input.nextElementSibling).find('span').each(function(){
+				$(input).data('template').find('span').each(function(){
 					this.innerHTML = '';
 				});
 		},
 		
 		// Clalculate letter height for the Carot, after first letter have been typed, or text pasted (only once)
 		setCaretHeight : function(input){
-			var lettersWrap = $(input.nextElementSibling);
+			var lettersWrap = $(input).data('template');
 			if( !lettersWrap.find('span').length )
 				return false;
 			letterHeight = lettersWrap.find('span')[0].clientHeight;
@@ -86,7 +86,7 @@
 		
 		// writes a single character every time
 		writer : function(charString, input, appendIndex){
-			var chars = $(input.nextElementSibling).children().not('b'),  // select all characters including <br> (which is a new line)
+			var chars = $(input).data('template').children().not('b'),  // select all characters including <br> (which is a new line)
 				newCharElm = document.createElement('span');
 
 			if( input.maxLength > 0 && chars.length > input.maxLength )
@@ -104,15 +104,20 @@
 				newCharElm = document.createElement('br');
 			
 			if( chars.length ){
-				if( appendIndex == 0 ) 
-					$(input.nextElementSibling).prepend(newCharElm);
-				else{
+				if( appendIndex == 0 ) { // Does this ever happen? appendIndex is 0 when chars.length is 0...
+					$(input).data('template').prepend(newCharElm);
+				}else{
 					var appendPos = chars.eq(--appendIndex);
 					appendPos.after(newCharElm);
 				}
 			}
-			else
-				input.nextElementSibling.appendChild(newCharElm);
+			else {
+				if( appendIndex == 0 ) {
+					$(input).data('template').prepend(newCharElm);
+				}else{
+					$(input).data('template').get(0).appendChild(newCharElm);
+				}
+			}
 
 			// let the render tree settle down with the new class, then remove it
 			if( charString)
@@ -130,11 +135,11 @@
 		
 		// insert bulk text (unlike the "writer" function which is for single character only)
 		fillText : function(text, input){
-			var charsCont = input.nextElementSibling, 
+			var charsCont = $(input).data('template').get(0), 
 				newCharElm,
 				frag = document.createDocumentFragment();
 
-			fancyInput.clear( input.nextElementSibling );
+			fancyInput.clear( $(input).data('template').get(0) );
 			
 			setTimeout( function(){
 				var length = text.length;
@@ -154,8 +159,9 @@
 		
 		// Handles characters removal from the fake text input
 		removeChars : function(el, range){
-			var allChars = $(el).children().not('b').not('.deleted'), 
-				caret = $(el).find('b'),
+			var $el = $(el),
+			    allChars = $el.children().not('b').not('.deleted'), 
+				caret = $el.find('b'),
 				charsToRemove;
 			
 			if( range[0] == range[1] )
@@ -171,9 +177,9 @@
 				setTimeout(function(){
 					charsToRemove.remove();
 				},140);
-			}
-			else
+			} else {
 				charsToRemove.remove();
+			}
 		},
 		
 		// recalculate textarea height or input width
@@ -212,7 +218,7 @@
 		
 		keydown : function(e){
 			var charString = String.fromCharCode(e.charCode),
-				textCont = this.nextElementSibling,  // text container DIV
+				textCont = $(this).data('template').get(0),  // text container DIV
 				appendIndex = this.selectionEnd,
 				undo = ((e.metaKey || e.ctrlKey) && e.keyCode == 90) || (e.altKey && e.keyCode == 8),
 				redo = (e.metaKey || e.ctrlKey) && e.keyCode == 89,
@@ -271,7 +277,7 @@
 				},20);
 			}
 			if( e.type == 'cut' ){
-				fancyInput.removeChars(this.nextElementSibling, [this.selectionStart, this.selectionEnd]);
+				fancyInput.removeChars($(this).data('template').get(0), [this.selectionStart, this.selectionEnd]);
 			}
 			
 			// I use 50 but most numbers under 65 will do i believe
@@ -287,13 +293,21 @@
 			if( this.selectionStart == this.value.length )
 				this.parentNode.scrollLeft = 999999; // this.parentNode.scrollLeftMax
 				
-			this.nextElementSibling.className = this.value ? '' : 'empty';
+			var template = $(this).data('template');
+			if (this.value) {
+				if (template.hasClass('empty')) template.removeClass('empty');
+			} else {
+				if ( ! template.hasClass('empty')) template.addClass('empty');
+			}
 				
 		},
 		
 		setCaret : function(input){
-			var caret = $(input.parentNode).find('.caret'),
-				allChars =  $(input.nextElementSibling).children().not('b'),
+			var $input = $(input),
+			    $el = $input.parents('.fancyInput'),
+			    template = $input.data('template'),
+			    caret = $el.find('.caret'),
+				allChars =  template.children().not('b'),
 				chars = allChars.not('.deleted'),
 				pos = fancyInput.getCaretPosition(input);
 
@@ -301,15 +315,38 @@
 					pos = input.value.length - pos;
 
 			var	insertPos = chars.eq(pos);
-
-			if(pos == input.value.length ){
-				//if( !chars.length )
-				//	caret.prependTo( input.nextElementSibling );
-				//else
-					caret.appendTo( input.nextElementSibling );
+			
+			// If you have different animations for the caret at default position,
+			// e.g. as :first-child or :only-child,
+			// you may get buggy behavior when it alternates between the two.
+			// CSS3 animations are really difficult to reset.
+			// We have 
+			// See @link https://css-tricks.com/restart-css-animation/
+			
+			if (caret.length) {
+				if ((pos === 1 || pos === 0)) {
+					$el.data('caret', caret.clone(true));
+					caret.detach(); // detach only when we need to
+				} else {
+					$el.data('caret', caret);
+				}
 			}
-			else
-				caret.insertBefore( insertPos );
+			
+			if (  ! $el.data('caretTimer')) $el.data('caretTimer', 0);
+			clearTimeout($el.data('caretTimer'));
+			
+			$el.data('caretTimer', setTimeout( function() {
+				if(pos == input.value.length ){
+					//if( !chars.length )
+					//	$el.data('caret').prependTo( input.nextElementSibling );
+					//else
+						$el.data('caret').appendTo( template );
+				}
+				else {
+					if (insertPos.length) $el.data('caret').insertBefore( insertPos );
+					else $el.data('caret').appendTo(template);
+				}
+			}, (pos === 1 || pos === 0) ? 125 : 1)); // 100~ish ms seems to be the sweet spot for re-introducing the caret and resetting the animations
 		},
 		
 		getCaretPosition : function(input){
@@ -358,7 +395,9 @@
 
 		inputs.each(function(){
 			var className = 'fancyInput',
-				template = $('<div><b class="caret">&#8203;</b></div>');
+			    template  = $('<div class="fancyInputTemplate"><b class="caret">&#8203;</b></div>');
+			    
+			$(this).data('template', template);
 				
 			if( this.tagName == 'TEXTAREA' )
 				className += ' textarea';
