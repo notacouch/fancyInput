@@ -395,9 +395,13 @@
 
 		inputs.each(function(){
 			var className = 'fancyInput',
-			    template  = $('<div class="fancyInputTemplate"><b class="caret">&#8203;</b></div>');
+			    template  = $('<div class="fancyInputTemplate"><b class="caret">&#8203;</b></div>'),
+			    self = this;
 			    
-			$(this).data('template', template);
+			$(this)
+				.on('fi.fillText', function(e){ if (e.text) { fancyInput.fillText(e.text, self); }})
+				.on('fi.setCaret', function(e){ fancyInput.setCaret(self); })
+				.data('template', template);
 				
 			if( this.tagName == 'TEXTAREA' )
 				className += ' textarea';
