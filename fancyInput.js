@@ -42,7 +42,8 @@
 				fancyInput.removeChars(textCont, rangeToDel);
 			}
 			
-			if( e.charCode && !(e.metaKey || e.ctrlKey) || newLine ){
+			if( !newLine && (e.keyCode === 13) ) { // Prevent adding empty <span>s on enter/return key
+			}else if( e.charCode && !(e.metaKey || e.ctrlKey) || newLine ){
 				var dir = charDir.check(charString); // BIDI support
 				if( dir == 'rtl' || (dir == '' && charDir.lastDir == 'rtl' ) )
 					appendIndex = this.value.length - this.selectionStart;
